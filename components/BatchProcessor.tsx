@@ -431,10 +431,9 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
 
         const ws = XLSX.utils.aoa_to_sheet(exportDataAOA);
         
-        // Freeze header
-        ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
+        // Freeze Row 1 (header) — xlsx-js-style requires views on worksheet
         ws['!views'] = [
-          { state: 'frozen', xSplit: 0, ySplit: 1, activePane: 'bottomLeft', topLeftCell: 'A2' }
+          { state: 'frozen', xSplit: 0, ySplit: 1, topLeftCell: 'A2' }
         ];
 
         // Set row heights: first row (headers) is 18 points
@@ -510,7 +509,17 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "RawData");
-        XLSX.writeFile(wb, `${exportFileName || 'export'}.xlsx`);
+        // Write as xlsx with compression for proper freeze pane support
+        const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true });
+        const blob = new Blob([wbOut], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${exportFileName || 'export'}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
         setShowExportModal(false);
       } catch (err) {
         console.error(err);
