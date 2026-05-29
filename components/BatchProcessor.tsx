@@ -397,137 +397,64 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
     setShowExportModal(true);
   };
 
-  const executeExport = () => {
+  const executeExport = async () => {
     setIsExporting(true);
-    setTimeout(() => {
-      try {
-        const activeData = marketplaceData[currentMarketplace] || [];
-        if (activeData.length === 0) {
-          setIsExporting(false);
-          return;
-        }
-
-        const cleanHeadersList = FIXED_HEADERS.map(h => {
-          const prefixMatch = h.match(/^[A-Z]+-/);
-          return prefixMatch ? h.substring(prefixMatch[0].length) : h;
-        });
-        
-        // Build export data as Array of Arrays (AOA) to prevent duplicate key collapsing
-        const exportDataAOA = [
-          cleanHeadersList, // Row 0 is the headers
-          ...activeData.map((row: any) => {
-            const calculatedRow = getRowCalculatedFields(row);
-            return FIXED_HEADERS.map((h, colIndex) => {
-              const val = getValueForHeader(h, calculatedRow);
-              // Explicitly set numbers as Number type so xlsx-js-style saves it as type 'n'
-              return (typeof val === 'string' && val.trim() === '') || val === undefined || val === null
-                ? '' 
-                : !isNaN(Number(val)) && val !== ''
-                ? Number(val) 
-                : val;
-            });
-          })
-        ];
-
-        const ws = XLSX.utils.aoa_to_sheet(exportDataAOA);
-        
-        // Freeze Row 1 (header) — xlsx-js-style requires views on worksheet
-        ws['!views'] = [
-          { state: 'frozen', xSplit: 0, ySplit: 1, topLeftCell: 'A2' }
-        ];
-
-        // Set row heights: first row (headers) is 18 points
-        ws['!rows'] = [{ hpt: 18 }];
-
-        // Set auto-fit columns based on clean headers and AOA data
-        const colWidths = cleanHeadersList.map((cleanH, colIdx) => {
-          let maxLen = cleanH.length;
-          // Start from row index 1 to skip header row
-          for (let rIdx = 1; rIdx < exportDataAOA.length; rIdx++) {
-            const valStr = String(exportDataAOA[rIdx][colIdx] || '');
-            if (valStr.length > maxLen) maxLen = valStr.length;
-          }
-          return { wch: Math.min(50, Math.max(12, maxLen + 3)) }; 
-        });
-        ws['!cols'] = colWidths;
-
-        // Apply Styles: full borders to all cells, center/bold headers with background colors preserved
-        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-        for (let r = range.s.r; r <= range.e.r; ++r) {
-          for (let c = range.s.c; c <= range.e.c; ++c) {
-            const cellAddress = XLSX.utils.encode_cell({ r, c });
-            if (!ws[cellAddress]) {
-              ws[cellAddress] = { t: 'z', v: '' };
-            }
-            const cell = ws[cellAddress];
-            if (!cell.s) cell.s = {};
-
-            if (r === 0) {
-              // Apply full visible thin black borders for headers
-              cell.s.border = {
-                top: { style: 'thin', color: { rgb: '000000' } },
-                bottom: { style: 'thin', color: { rgb: '000000' } },
-                left: { style: 'thin', color: { rgb: '000000' } },
-                right: { style: 'thin', color: { rgb: '000000' } }
-              };
-
-              // Header cells: Bold, Calibri, centered, single line (no wrap), preserve background color fills
-              const headerVal = String(cell.v || '');
-              let fillColor = 'FFFFFF';
-              if (headerVal === 'Style ID' || headerVal === 'SKU ID') {
-                fillColor = 'FFFFCC'; // Light Yellow
-              } else if ([
-                "No.", "Seller Name", "Item Name", "Category", "Brand", "Type", 
-                "ASIN Number", "SKU Number", "HSN Number", "MRP Price", "Item Color", 
-                "Weight", "Weight Unit", "Length", "Length Unit", "Width", "Width Unit", 
-                "Height", "Height Unit", "Channel Price", "Purchase Margin(%)", "Tax", 
-                "Purchase Cost", "Purchase Tax", "Final Purchase Cost"
-              ].includes(headerVal)) {
-                fillColor = 'FFCCCC'; // Light Red
-              } else {
-                fillColor = 'CCFFCC'; // Light Green
-              }
-
-              cell.s.fill = { fgColor: { rgb: fillColor } };
-              cell.s.font = { bold: true, name: 'Calibri', size: 10 };
-              cell.s.alignment = { horizontal: 'center', vertical: 'center', wrapText: false };
-            } else {
-              // Apply full thin light-gray border for data rows
-              cell.s.border = {
-                top: { style: 'thin', color: { rgb: 'D3D3D3' } },
-                bottom: { style: 'thin', color: { rgb: 'D3D3D3' } },
-                left: { style: 'thin', color: { rgb: 'D3D3D3' } },
-                right: { style: 'thin', color: { rgb: 'D3D3D3' } }
-              };
-
-              // Data cells: normal font (Calibri), vertically centered
-              cell.s.font = { name: 'Calibri', size: 9 };
-              cell.s.alignment = { vertical: 'center' };
-            }
-          }
-        }
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "RawData");
-        // Write as xlsx with compression for proper freeze pane support
-        const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true });
-        const blob = new Blob([wbOut], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${exportFileName || 'export'}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        setShowExportModal(false);
-      } catch (err) {
-        console.error(err);
-        showAlert("Failed to export Excel file.");
-      } finally {
+    try {
+      const activeData = marketplaceData[currentMarketplace] || [];
+      if (activeData.length === 0) {
         setIsExporting(false);
+        return;
       }
-    }, 150);
+
+      const cleanHeadersList = FIXED_HEADERS.map(h => {
+        const prefixMatch = h.match(/^[A-Z]+-/);
+        return prefixMatch ? h.substring(prefixMatch[0].length) : h;
+      });
+      
+      const rows = activeData.map((row: any) => {
+        const calculatedRow = getRowCalculatedFields(row);
+        return FIXED_HEADERS.map((h) => {
+          const val = getValueForHeader(h, calculatedRow);
+          return (typeof val === 'string' && val.trim() === '') || val === undefined || val === null
+            ? '' 
+            : !isNaN(Number(val)) && val !== ''
+            ? Number(val) 
+            : val;
+        });
+      });
+
+      const response = await fetch('/api/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: exportFileName,
+          headers: cleanHeadersList,
+          rows: rows,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Export request failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${exportFileName || 'export'}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setShowExportModal(false);
+    } catch (err) {
+      console.error(err);
+      showAlert("Failed to export Excel file.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const [localMargin, setLocalMargin] = useState(buffers.marginAdjustment?.toString() || '0');

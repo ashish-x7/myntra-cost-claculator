@@ -4,8 +4,14 @@ import json
 import os
 import urllib.request
 import urllib.error
+import io
+import re
 
 from flask import Flask, Response, jsonify, request, send_from_directory
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 # Load .env file manually (no python-dotenv needed)
 def load_dotenv(path: str = ".env") -> None:
@@ -200,6 +206,159 @@ def chat() -> Response:
         return jsonify({"reply": reply})
     except Exception as exc:
         return jsonify({"reply": "I'm sorry, I'm having trouble connecting right now. 😔"})
+
+
+# ── Excel Export (openpyxl Backend) ─────────────────────────────────────────
+
+def sanitize_filename(filename: str) -> str:
+    cleaned = "".join(char for char in filename if char not in '<>:"/\\|?*').strip().strip(".")
+    return cleaned or "myntra_export"
+
+
+def coerce_export_cell(value: object) -> object:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        text = ILLEGAL_CHARACTERS_RE.sub("", value).strip()
+        if not text:
+            return ""
+        cleaned = text.replace(",", "")
+        is_percent = cleaned.endswith("%")
+        if is_percent:
+            cleaned = cleaned[:-1].strip()
+        
+        # Check if integer
+        if re.fullmatch(r"[+-]?\d+", cleaned):
+            try:
+                num = int(cleaned)
+                return float(num) / 100.0 if is_percent else num
+            except ValueError:
+                return text
+        
+        # Check if float
+        if re.fullmatch(r"[+-]?(?:\d*\.\d+|\d+\.\d*)", cleaned):
+            try:
+                num = float(cleaned)
+                return num / 100.0 if is_percent else num
+            except ValueError:
+                return text
+                
+        return text
+    return value
+
+
+@app.post("/api/export")
+def export_excel_route() -> Response:
+    try:
+        payload = request.get_json(force=True, silent=True)
+        if not payload or not isinstance(payload, dict):
+            return jsonify({"error": "Invalid request payload."}), 400
+            
+        filename = sanitize_filename(str(payload.get("filename", "myntra_export")))
+        headers = [ILLEGAL_CHARACTERS_RE.sub("", str(cell)) for cell in payload.get("headers", [])]
+        rows = payload.get("rows", []) or []
+        
+        if not headers:
+            return jsonify({"error": "No headers provided."}), 400
+            
+        # Create workbook
+        wb = Workbook()
+        sheet = wb.active
+        sheet.title = "RawData"
+        
+        # Append headers
+        sheet.append(headers)
+        
+        # Fill data rows
+        for row_index, row in enumerate(rows, start=2):
+            padded = row + [""] * (len(headers) - len(row))
+            coerced_row = [coerce_export_cell(cell) for cell in padded[: len(headers)]]
+            for col_idx, cell_value in enumerate(coerced_row, start=1):
+                cell = sheet.cell(row=row_index, column=col_idx, value=cell_value)
+                
+                # Check for percentage formatting
+                if (
+                    isinstance(cell_value, (int, float))
+                    and "%" in headers[col_idx - 1]
+                    and abs(cell_value) <= 1
+                ):
+                    cell.number_format = "0%"
+                    
+        # Freeze Pane (Row 1)
+        sheet.freeze_panes = "A2"
+        
+        # Styling definitions
+        red_fill = PatternFill(fill_type="solid", fgColor="FFCCCC")
+        yellow_fill = PatternFill(fill_type="solid", fgColor="FFFFCC")
+        green_fill = PatternFill(fill_type="solid", fgColor="CCFFCC")
+        
+        thin_black = Side(style="thin", color="000000")
+        thin_gray = Side(style="thin", color="D3D3D3")
+        
+        header_border = Border(left=thin_black, right=thin_black, top=thin_black, bottom=thin_black)
+        data_border = Border(left=thin_gray, right=thin_gray, top=thin_gray, bottom=thin_gray)
+        
+        # Style Header Row
+        sheet.row_dimensions[1].height = 18
+        for col_idx in range(1, len(headers) + 1):
+            cell = sheet.cell(row=1, column=col_idx)
+            cell.font = Font(name="Calibri", size=10, bold=True)
+            cell.border = header_border
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
+            
+            header_val = str(headers[col_idx - 1] or "")
+            if header_val in ["Style ID", "SKU ID"]:
+                cell.fill = yellow_fill
+            elif header_val in [
+                "No.", "Seller Name", "Item Name", "Category", "Brand", "Type", 
+                "ASIN Number", "SKU Number", "HSN Number", "MRP Price", "Item Color", 
+                "Weight", "Weight Unit", "Length", "Length Unit", "Width", "Width Unit", 
+                "Height", "Height Unit", "Channel Price", "Purchase Margin(%)", "Tax", 
+                "Purchase Cost", "Purchase Tax", "Final Purchase Cost"
+            ]:
+                cell.fill = red_fill
+            else:
+                cell.fill = green_fill
+                
+        # Style Data Rows
+        if sheet.max_row > 1:
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=len(headers)):
+                for cell in row:
+                    cell.font = Font(name="Calibri", size=9)
+                    cell.border = data_border
+                    cell.alignment = Alignment(vertical="center", wrap_text=False)
+                    
+        # Calculate and Apply Column Widths
+        column_widths = {}
+        for col_idx in range(1, len(headers) + 1):
+            header_val = str(headers[col_idx - 1] or "")
+            column_widths[col_idx] = max(len(header_val) + 3, 12)
+            
+        for row in rows:
+            for col_idx in range(1, len(headers) + 1):
+                if col_idx - 1 < len(row):
+                    cell_val = str(row[col_idx - 1] or "")
+                    column_widths[col_idx] = max(column_widths[col_idx], min(len(cell_val) + 3, 50))
+                    
+        for col_idx, width in column_widths.items():
+            column_letter = get_column_letter(col_idx)
+            sheet.column_dimensions[column_letter].width = width
+            
+        # Write to BytesIO and return response
+        output = io.BytesIO()
+        wb.save(output)
+        workbook_bytes = output.getvalue()
+        
+    except Exception as exc:
+        app.logger.exception("Excel export failed: %s", exc)
+        return jsonify({"error": f"Excel export failed: {exc}"}), 500
+        
+    response = Response(
+        workbook_bytes,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}.xlsx"'
+    return response
 
 
 # ── Static Files (React Build) ───────────────────────────────────────────────
