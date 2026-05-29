@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "pip install -r requirements.txt && vite build",
+    "build": "pip install -r requirements.txt --break-system-packages && vite build",
     "preview": "vite preview",
     "start": "python server.py"
   },
