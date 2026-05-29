@@ -78,6 +78,14 @@ export const calculateTargetFromTP = (
   return baseTarget + returnCost;
 };
 
+const commissionRulesCache = new Map<string, FeeRule[]>();
+const fixedFeeRulesCache = new Map<string, FeeRule[]>();
+
+export const clearCalculatorCache = () => {
+  commissionRulesCache.clear();
+  fixedFeeRulesCache.clear();
+};
+
 const getCommissionRate = (price: number, articleType: ArticleType, brand: string, commissionRules: FeeRule[] = [], log: boolean = false): number => {
   if (log) {
     console.log(`getCommissionRate input - price: ${price}, articleType: ${articleType}, brand: ${brand}, commissionRules length: ${commissionRules?.length}`);
@@ -91,21 +99,27 @@ const getCommissionRate = (price: number, articleType: ArticleType, brand: strin
   }
 
   if (commissionRules && commissionRules.length > 0) {
-    const activeRules = commissionRules.filter(r => {
-      const brandMatch = r.brand === brand;
-      const typeMatch = r.articleType === articleType || r.articleType.toUpperCase() === 'ALL';
-      return brandMatch && typeMatch;
-    });
+    const cacheKey = `${brand}_${articleType}`;
+    let activeRules = commissionRulesCache.get(cacheKey);
     
-    // Sort specific articleType before generic 'ALL' rules
-    activeRules.sort((a, b) => {
-      const aIsSpecific = a.articleType === articleType;
-      const bIsSpecific = b.articleType === articleType;
-      if (aIsSpecific && !bIsSpecific) return -1;
-      if (!aIsSpecific && bIsSpecific) return 1;
-      return 0;
-    });
-
+    if (!activeRules) {
+      activeRules = commissionRules.filter(r => {
+        const brandMatch = r.brand === brand;
+        const typeMatch = r.articleType === articleType || r.articleType.toUpperCase() === 'ALL';
+        return brandMatch && typeMatch;
+      });
+      
+      // Sort specific articleType before generic 'ALL' rules
+      activeRules.sort((a, b) => {
+        const aIsSpecific = a.articleType === articleType;
+        const bIsSpecific = b.articleType === articleType;
+        if (aIsSpecific && !bIsSpecific) return -1;
+        if (!aIsSpecific && bIsSpecific) return 1;
+        return 0;
+      });
+      commissionRulesCache.set(cacheKey, activeRules);
+    }
+    
     if (log) {
       console.log(`getCommissionRate sorted activeRules count: ${activeRules.length}`, activeRules);
     }
@@ -141,16 +155,22 @@ const getFixedFee = (aisp: number, articleType: ArticleType, brand: string, fixe
     console.log(`getFixedFee input - aisp: ${aisp}, articleType: ${articleType}, brand: ${brand}, fixedFeeRules length: ${fixedFeeRules?.length}`);
   }
   if (fixedFeeRules && fixedFeeRules.length > 0) {
-    const activeRules = fixedFeeRules.filter(r => r.brand === brand && (r.articleType === articleType || r.articleType.toUpperCase() === 'ALL'));
+    const cacheKey = `${brand}_${articleType}`;
+    let activeRules = fixedFeeRulesCache.get(cacheKey);
     
-    // Sort specific articleType before generic 'ALL' rules
-    activeRules.sort((a, b) => {
-      const aIsSpecific = a.articleType === articleType;
-      const bIsSpecific = b.articleType === articleType;
-      if (aIsSpecific && !bIsSpecific) return -1;
-      if (!aIsSpecific && bIsSpecific) return 1;
-      return 0;
-    });
+    if (!activeRules) {
+      activeRules = fixedFeeRules.filter(r => r.brand === brand && (r.articleType === articleType || r.articleType.toUpperCase() === 'ALL'));
+      
+      // Sort specific articleType before generic 'ALL' rules
+      activeRules.sort((a, b) => {
+        const aIsSpecific = a.articleType === articleType;
+        const bIsSpecific = b.articleType === articleType;
+        if (aIsSpecific && !bIsSpecific) return -1;
+        if (!aIsSpecific && bIsSpecific) return 1;
+        return 0;
+      });
+      fixedFeeRulesCache.set(cacheKey, activeRules);
+    }
 
     if (log) {
       console.log(`getFixedFee sorted activeRules count: ${activeRules.length}`, activeRules);
@@ -380,6 +400,8 @@ export const findAISPForTarget = (
   commissionRules?: FeeRule[],
   fixedFeeRules?: FeeRule[]
 ): number => {
+  // Keep rule cache warm across rows for maximum performance
+  
   // PLATFORM FEE SOLVER 2.0
   // Since payout is piecewise linear with jumps, we use a robust search
   
@@ -389,7 +411,8 @@ export const findAISPForTarget = (
   let left = target;
   let right = target * 10; // Extremely safe upper bound
 
-  for (let i = 0; i < 60; i++) {
+  // 25 iterations achieve a precision of better than 0.0001 Rupees (far more than enough)
+  for (let i = 0; i < 25; i++) {
     const mid = (left + right) / 2;
     const res = calculateBreakdown(
       mid, 

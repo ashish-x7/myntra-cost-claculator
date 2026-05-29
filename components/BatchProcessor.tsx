@@ -74,6 +74,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
   const [selectedParty, setSelectedParty] = useState('');
   const currentMarketplace = Marketplace.MYNTRA;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const calculationCache = useRef(new Map<string, any>());
 
   const round = (num: number) => typeof num === 'number' && !isNaN(num) ? Math.round((num + Number.EPSILON) * 100) / 100 : 0;
 
@@ -98,12 +99,20 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
     };
 
     const typeVal = getTypeVal();
-    const derivedLevel = categoryMap?.[String(typeVal)] || (ARTICLE_LEVEL_MAPPING as any)[String(typeVal)];
-    const level = derivedLevel as Level || Level.LEVEL_1;
-
     const yKey = lowerKeys['y-final purchase cost'] || lowerKeys['final purchase cost'];
     const yVal = yKey ? row[yKey] : 0;
     const tpCost = parseFloat(String(yVal)) || 0;
+
+    const cacheKey = `${tpCost}_${typeVal}`;
+    if (calculationCache.current.has(cacheKey)) {
+      return {
+        ...row,
+        ...calculationCache.current.get(cacheKey)
+      };
+    }
+
+    const derivedLevel = categoryMap?.[String(typeVal)] || (ARTICLE_LEVEL_MAPPING as any)[String(typeVal)];
+    const level = derivedLevel as Level || Level.LEVEL_1;
 
     const profit = buffers.marginType === MarginType.PERCENT ? (tpCost * (buffers.marginAdjustment || 0)) / 100 : (buffers.marginAdjustment || 0);
     const tpWithMargin = tpCost + profit;
@@ -157,13 +166,19 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
       fixedFeeRules
     );
 
-    return {
-      ...row,
+    const resultObj = {
       _typeVal: typeVal,
       _derivedLevel: level,
       _targetAISP: targetAISP,
       _breakdown: breakdown,
       _tpCost: tpCost
+    };
+
+    calculationCache.current.set(cacheKey, resultObj);
+
+    return {
+      ...row,
+      ...resultObj
     };
   };
 
@@ -229,9 +244,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
         if (h === 'AD-Target Settlement') return round(row._targetAISP);
         
         if (h === 'AE-MRP') {
-          const mrpKey = lowerKeys['j-mrp price'] || lowerKeys['mrp price'] || lowerKeys['mrp'];
-          const mrpRaw = mrpKey ? row[mrpKey] : 0;
-          return parseFloat(String(mrpRaw)) || 0;
+          return Math.round(breakdown.aisp);
         }
 
         if (h === 'AF-Seller Price') return round(breakdown.aisp - breakdown.logisticsFee);
@@ -399,6 +412,12 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
 
   const executeExport = async () => {
     setIsExporting(true);
+    calculationCache.current.clear(); // Ensure fresh cache for export run!
+    const startTimeVal = performance.now();
+    console.log("=== STARTING FRONTEND EXPORT PROCESS ===");
+    console.log("Total rows to export:", marketplaceData[currentMarketplace]?.length || 0);
+    console.time("frontend_total_export_time");
+
     try {
       const activeData = marketplaceData[currentMarketplace] || [];
       if (activeData.length === 0) {
@@ -411,9 +430,13 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
         return prefixMatch ? h.substring(prefixMatch[0].length) : h;
       });
       
-      const rows = activeData.map((row: any) => {
+      console.time("frontend_rows_mapping_time");
+      const rows = activeData.map((row: any, idx: number) => {
+        const shouldLogIndividual = idx % 100 === 0;
+        if (shouldLogIndividual) console.time(`row_${idx}_mapping`);
+        
         const calculatedRow = getRowCalculatedFields(row);
-        return FIXED_HEADERS.map((h) => {
+        const mapped = FIXED_HEADERS.map((h) => {
           const val = getValueForHeader(h, calculatedRow);
           return (typeof val === 'string' && val.trim() === '') || val === undefined || val === null
             ? '' 
@@ -421,8 +444,13 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
             ? Number(val) 
             : val;
         });
+        
+        if (shouldLogIndividual) console.timeEnd(`row_${idx}_mapping`);
+        return mapped;
       });
+      console.timeEnd("frontend_rows_mapping_time");
 
+      console.time("backend_api_request_time");
       const response = await fetch('/api/export', {
         method: 'POST',
         headers: {
@@ -434,11 +462,13 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
           rows: rows,
         }),
       });
+      console.timeEnd("backend_api_request_time");
 
       if (!response.ok) {
         throw new Error('Export request failed');
       }
 
+      console.time("browser_blob_download_time");
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -448,6 +478,11 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      console.timeEnd("browser_blob_download_time");
+
+      console.timeEnd("frontend_total_export_time");
+      console.log("=== FRONTEND EXPORT PROCESS COMPLETE ===");
+      
       setShowExportModal(false);
     } catch (err) {
       console.error(err);
@@ -483,6 +518,10 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
   const calculatedDataSlice = useMemo(() => {
     return currentDataSlice.map(row => getRowCalculatedFields(row));
   }, [currentDataSlice, buffers, selectedParty, reverseRegion, reverseMode, reversePercent, isReverse, manualRateCard, gtaRanges, gtaFees, commissionRules, fixedFeeRules, categoryMap, parties]);
+
+  useEffect(() => {
+    calculationCache.current.clear();
+  }, [buffers, selectedParty, reverseRegion, reverseMode, reversePercent, isReverse, manualRateCard, gtaRanges, gtaFees, commissionRules, fixedFeeRules, categoryMap, parties]);
 
   return (
     <div className="w-full flex flex-col items-stretch gap-6">

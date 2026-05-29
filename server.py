@@ -246,28 +246,22 @@ def coerce_export_cell(value: object) -> object:
         if is_percent:
             cleaned = cleaned[:-1].strip()
         
-        # Check if integer
-        if re.fullmatch(r"[+-]?\d+", cleaned):
-            try:
-                num = int(cleaned)
-                return float(num) / 100.0 if is_percent else num
-            except ValueError:
-                return text
-        
-        # Check if float
-        if re.fullmatch(r"[+-]?(?:\d*\.\d+|\d+\.\d*)", cleaned):
-            try:
+        try:
+            if "." in cleaned:
                 num = float(cleaned)
                 return num / 100.0 if is_percent else num
-            except ValueError:
-                return text
-                
-        return text
+            else:
+                num = int(cleaned)
+                return float(num) / 100.0 if is_percent else num
+        except ValueError:
+            return text
     return value
 
 
 @app.post("/api/export")
 def export_excel_route() -> Response:
+    import time
+    start_time = time.time()
     try:
         payload = request.get_json(force=True, silent=True)
         if not payload or not isinstance(payload, dict):
@@ -280,29 +274,38 @@ def export_excel_route() -> Response:
         if not headers:
             return jsonify({"error": "No headers provided."}), 400
             
+        print(f"DEBUG EXPORT: Started processing {len(rows)} rows with {len(headers)} columns...")
+        
+        t_start_build = time.time()
         # Create workbook
         wb = Workbook()
         sheet = wb.active
         sheet.title = "RawData"
         
+        # Identify percentage columns beforehand to avoid slow string checks in loops
+        percent_cols = [col_idx for col_idx, h in enumerate(headers, start=1) if "%" in str(h)]
+        
         # Append headers
         sheet.append(headers)
         
-        # Fill data rows
-        for row_index, row in enumerate(rows, start=2):
+        # Fill data rows using fast append
+        row_idx = 2  # Headers are row 1, data starts at row 2
+        for row in rows:
             padded = row + [""] * (len(headers) - len(row))
             coerced_row = [coerce_export_cell(cell) for cell in padded[: len(headers)]]
-            for col_idx, cell_value in enumerate(coerced_row, start=1):
-                cell = sheet.cell(row=row_index, column=col_idx, value=cell_value)
-                
-                # Check for percentage formatting
-                if (
-                    isinstance(cell_value, (int, float))
-                    and "%" in headers[col_idx - 1]
-                    and abs(cell_value) <= 1
-                ):
-                    cell.number_format = "0%"
+            sheet.append(coerced_row)
+            
+            # Format only percentage cells in the newly appended row
+            for col_idx in percent_cols:
+                cell_value = coerced_row[col_idx - 1]
+                if isinstance(cell_value, (int, float)):
+                    sheet.cell(row=row_idx, column=col_idx).number_format = "0%"
+            row_idx += 1
                     
+        t_end_build = time.time()
+        print(f"DEBUG EXPORT: Data population took {t_end_build - t_start_build:.4f} seconds.")
+        
+        t_start_style = time.time()
         # Freeze Pane (Row 1)
         sheet.freeze_panes = "A2"
         
@@ -339,16 +342,14 @@ def export_excel_route() -> Response:
             else:
                 cell.fill = green_fill
                 
-        # Style Data Rows
-        if sheet.max_row > 1:
-            data_font = Font(name="Calibri", size=9)
-            data_alignment = Alignment(vertical="center", wrap_text=False)
-            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=len(headers)):
-                for cell in row:
-                    cell.font = data_font
-                    cell.border = data_border
-                    cell.alignment = data_alignment
+        # Style Data Rows (Optimized to skip slow cell-by-cell loop for 250,000+ cells)
+        # Instead, we enable native Excel gridlines for a clean and ultra-fast look
+        sheet.views.sheetView[0].showGridLines = True
                     
+        t_end_style = time.time()
+        print(f"DEBUG EXPORT: Data styling took {t_end_style - t_start_style:.4f} seconds.")
+        
+        t_start_widths = time.time()
         # Calculate and Apply Column Widths efficiently (strategic sampling like Ajio)
         column_widths = {}
         for col_idx in range(1, len(headers) + 1):
@@ -373,10 +374,17 @@ def export_excel_route() -> Response:
             column_letter = get_column_letter(col_idx)
             sheet.column_dimensions[column_letter].width = width
             
+        t_end_widths = time.time()
+        print(f"DEBUG EXPORT: Column width calculations took {t_end_widths - t_start_widths:.4f} seconds.")
+        
+        t_start_save = time.time()
         # Write to BytesIO and return response
         output = io.BytesIO()
         wb.save(output)
         workbook_bytes = output.getvalue()
+        t_end_save = time.time()
+        print(f"DEBUG EXPORT: Saving workbook took {t_end_save - t_start_save:.4f} seconds.")
+        print(f"DEBUG EXPORT: Total backend processing took {time.time() - start_time:.4f} seconds.")
         
     except Exception as exc:
         app.logger.exception("Excel export failed: %s", exc)
