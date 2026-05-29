@@ -316,25 +316,15 @@ const App: React.FC = () => {
 
         const mode = activeMasterModal === 'commission' ? 'commission' : 'fixed_fee';
 
-        if (geminiApiKey && geminiApiKey.trim()) {
-          setPdfParsingStatus("Parsing text with Gemini AI...");
-          try {
-            const parsedRules = await parseMyntraAnnexureWithGemini(textItems, selectedPartyForPdf, geminiApiKey, mode);
-            setPdfRulesPreview(parsedRules);
-            setPdfParsingStatus("");
-          } catch (geminiErr: any) {
-            console.error("Gemini Parsing Error:", geminiErr);
-            setPdfParsingStatus("Gemini failed. Falling back to local Regex parser...");
-            const parsedRules = parseMyntraAnnexureText(textItems, selectedPartyForPdf, mode);
-            if (parsedRules.length === 0) {
-              setCustomAlert({ message: `Gemini failed, and local Regex parser found no rules. Gemini Error: ${geminiErr.message}` });
-            } else {
-              setPdfRulesPreview(parsedRules);
-            }
-            setPdfParsingStatus("");
-          }
-        } else {
-          setPdfParsingStatus("Parsing text with local Regex...");
+        // Always try backend AI proxy first, fall back to local regex parser
+        setPdfParsingStatus("Parsing text with Gemini AI (via server)...");
+        try {
+          const parsedRules = await parseMyntraAnnexureWithGemini(textItems, selectedPartyForPdf, mode);
+          setPdfRulesPreview(parsedRules);
+          setPdfParsingStatus("");
+        } catch (geminiErr: any) {
+          console.error("Backend Gemini Parsing Error:", geminiErr);
+          setPdfParsingStatus("AI parsing failed. Falling back to local Regex parser...");
           const parsedRules = parseMyntraAnnexureText(textItems, selectedPartyForPdf, mode);
           if (parsedRules.length === 0) {
             console.log("PDF Text Items:", textItems);
@@ -344,7 +334,7 @@ const App: React.FC = () => {
             if (idx !== -1) {
               context = fullText.substring(Math.max(0, idx - 50), Math.min(fullText.length, idx + 600));
             }
-            setCustomAlert({ message: `No rules found! Context: ${context}` });
+            setCustomAlert({ message: `AI parsing failed, and local Regex parser found no rules. Error: ${geminiErr.message}` });
           } else {
             setPdfRulesPreview(parsedRules);
           }
