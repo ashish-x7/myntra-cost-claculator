@@ -1,0 +1,13 @@
+@echo off
+echo Downloading Node.js...
+if not exist node-v20.12.2-win-x64 (
+  curl.exe -s -L -o node.zip https://nodejs.org/dist/v20.12.2/node-v20.12.2-win-x64.zip
+  echo Extracting Node.js...
+  tar.exe -xf node.zip
+  del node.zip
+)
+set PATH=%CD%\node-v20.12.2-win-x64;%PATH%
+echo Running npm install...
+call npm install
+echo Starting dev server...
+call npm run dev -- --port 5173
