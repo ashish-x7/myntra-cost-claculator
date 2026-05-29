@@ -127,6 +127,63 @@ ${fullText}`;
   return res.status(500).send(lastError ? lastError.message : 'All Gemini models failed to parse the PDF.');
 });
 
+// Chatbot AI chat endpoint
+app.post('/api/chat', async (req, res) => {
+  const { message, userName, context } = req.body;
+  const geminiKey = process.env.GEMINI_API_KEY;
+
+  if (!geminiKey) {
+    return res.status(400).json({ reply: "Server me API key configure nahi hai." });
+  }
+
+  const systemPrompt = `You are AJ, the user's "Dashboard Friend" and business assistant for this Myntra Cost Calculator.
+Your tone is extremely friendly, professional, and helpful. Always address the user as "${userName || 'friend'}".
+
+CORE CAPABILITIES:
+1. Simple Math: Perform basic arithmetic (+, -, *, /).
+2. Percentage Logic: Handle queries like "X% of Y", "percentage of X", etc.
+3. Advanced Business Math:
+   - Reverse GST: Extract base price from a tax-inclusive price (Formula: Price / (1 + TaxRate)).
+   - Profit Margin vs Markup: Calculate required selling price for a target margin.
+   - Discount Stacking: Calculate final price after sequential discounts.
+   - Break-even: Calculate minimum price to cover costs.
+4. Myntra-specific Help:
+   - Purchase Cost = MRP * (1 - Purchase Margin%) / (1 + Tax%)
+   - Purchase Tax = Purchase Cost * Tax%
+   - Final Purchase Cost = Purchase Cost + Purchase Tax
+   - Myntra Commission is deducted from selling price
+   - Fixed Fee is a flat charge per item
+
+GUIDELINES:
+- Respond in "Hinglish" (a natural mix of Hindi and English).
+- For math queries, clearly state the result and briefly show the formula or steps used.
+- If the user seems confused, offer to start the guided calculation by telling them to type "calculate".
+- Keep responses concise but warm.`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ parts: [{ text: message }] }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(500).json({ reply: "AI se connect karne me problem aa rahi hai. Baad me try karo." });
+    }
+
+    const data = await response.json();
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Koi response nahi mila.";
+    return res.json({ reply });
+  } catch (err) {
+    return res.status(500).json({ reply: "I'm sorry, I'm having trouble connecting right now. 😔" });
+  }
+});
+
 // Serve static files from React build directory
 app.use(express.static(path.join(__dirname, 'dist')));
 

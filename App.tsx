@@ -10,6 +10,7 @@ import CompactSimulator from './components/CompactSimulator';
 import ResultCard from './components/ResultCard';
 import BatchProcessor from './components/BatchProcessor';
 import logoImg from './logo.png';
+import Chatbot from './components/Chatbot';
 
 const DEFAULT_BUFFERS: BusinessBuffers = {
   marginPercent: 0,
@@ -1626,6 +1627,10 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* AJ Chatbot */}
+        <Chatbot />
+
       </div>
     </div>
   );
