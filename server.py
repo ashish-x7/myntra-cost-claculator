@@ -6,12 +6,31 @@ import urllib.request
 import urllib.error
 import io
 import re
+import subprocess
+import sys
+
+# Self-healing import to install openpyxl if missing (critical for Render Node environment)
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+except ImportError:
+    try:
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", "openpyxl>=3.1.0", "--break-system-packages"
+        ])
+    except Exception:
+        # Fallback without --break-system-packages in case of older python env
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", "openpyxl>=3.1.0"
+        ])
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 from flask import Flask, Response, jsonify, request, send_from_directory
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
-from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 # Load .env file manually (no python-dotenv needed)
 def load_dotenv(path: str = ".env") -> None:
