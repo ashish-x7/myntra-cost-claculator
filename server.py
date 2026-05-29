@@ -341,23 +341,33 @@ def export_excel_route() -> Response:
                 
         # Style Data Rows
         if sheet.max_row > 1:
+            data_font = Font(name="Calibri", size=9)
+            data_alignment = Alignment(vertical="center", wrap_text=False)
             for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=1, max_col=len(headers)):
                 for cell in row:
-                    cell.font = Font(name="Calibri", size=9)
+                    cell.font = data_font
                     cell.border = data_border
-                    cell.alignment = Alignment(vertical="center", wrap_text=False)
+                    cell.alignment = data_alignment
                     
-        # Calculate and Apply Column Widths
+        # Calculate and Apply Column Widths efficiently (strategic sampling like Ajio)
         column_widths = {}
         for col_idx in range(1, len(headers) + 1):
             header_val = str(headers[col_idx - 1] or "")
             column_widths[col_idx] = max(len(header_val) + 3, 12)
             
-        for row in rows:
-            for col_idx in range(1, len(headers) + 1):
-                if col_idx - 1 < len(row):
-                    cell_val = str(row[col_idx - 1] or "")
-                    column_widths[col_idx] = max(column_widths[col_idx], min(len(cell_val) + 3, 50))
+        if len(rows) > 100:
+            sample_size = min(500, max(100, len(rows) // 10))
+            sample_indices = [int(i * len(rows) / sample_size) for i in range(sample_size)]
+        else:
+            sample_indices = range(len(rows))
+            
+        for row_idx in sample_indices:
+            if row_idx < len(rows):
+                row = rows[row_idx]
+                for col_idx in range(1, len(headers) + 1):
+                    if col_idx - 1 < len(row):
+                        cell_val = str(row[col_idx - 1] or "")
+                        column_widths[col_idx] = max(column_widths[col_idx], min(len(cell_val) + 3, 50))
                     
         for col_idx, width in column_widths.items():
             column_letter = get_column_letter(col_idx)
