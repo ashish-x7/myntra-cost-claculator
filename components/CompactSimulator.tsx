@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { Brand, ArticleType, BusinessBuffers, Level, PricingResult, MarginType, ReverseLogisticsMode, Region, FeeRule } from '../types';
 import SearchableSelect from './SearchableSelect';
 import { calculateReturnCost } from '../services/calculatorService';
+import excelIcon from '../excel-icon.png';
 
 interface CompactSimulatorProps {
   brand: string;
@@ -98,6 +99,59 @@ const CompactSimulator: React.FC<CompactSimulatorProps> = ({
     reverseMode,
     buffers.returnPercent
   );
+
+  const exportToExcel = () => {
+    const data = [
+      { Parameter: "--- INPUTS ---", Value: "" },
+      { Parameter: "Brand", Value: brand },
+      { Parameter: "Type", Value: articleType },
+      { Parameter: "Level", Value: level },
+      { Parameter: "TP Cost", Value: tpPrice },
+      { Parameter: "Margin Type", Value: buffers.marginType },
+      { Parameter: "Margin", Value: buffers.marginAdjustment },
+      { Parameter: "Return Type", Value: buffers.returnType || MarginType.PERCENT },
+      { Parameter: "Return", Value: buffers.returnPercent },
+      { Parameter: "Purchase GST %", Value: buffers.purchaseTaxPercent !== undefined ? buffers.purchaseTaxPercent : 5 },
+      { Parameter: "Target Settlement", Value: targetSettlement },
+      { Parameter: "MRP", Value: Math.round(result.aisp) },
+      { Parameter: "", Value: "" },
+      { Parameter: "--- PURCHASE DETAILS ---", Value: "" },
+      { Parameter: "Purchase w/o Tax", Value: (tpPrice - (((tpPrice * (buffers.purchaseTaxPercent !== undefined ? buffers.purchaseTaxPercent : 5)) / 100 + Number.EPSILON))).toFixed(2) },
+      { Parameter: "GST Amount", Value: (((tpPrice * (buffers.purchaseTaxPercent !== undefined ? buffers.purchaseTaxPercent : 5)) / 100 + Number.EPSILON)).toFixed(2) },
+      { Parameter: "Purchase with Tax", Value: tpPrice.toFixed(2) },
+      { Parameter: "", Value: "" },
+      { Parameter: "--- PRICE STRUCTURE ---", Value: "" },
+      { Parameter: "Seller Price", Value: Math.round(result.aisp - result.logisticsFee) },
+      { Parameter: "GTA Shipping", Value: Math.round(result.logisticsFee) },
+      { Parameter: "Cust. Price", Value: Math.round(result.aisp + result.logisticsFee) },
+      { Parameter: "", Value: "" },
+      { Parameter: "--- PLATFORM COMM. ---", Value: "" },
+      { Parameter: "Base Comm", Value: result.baseCommission.toFixed(2) },
+      { Parameter: "IGST (18%)", Value: (result.commission - result.baseCommission).toFixed(2) },
+      { Parameter: "Total Comm", Value: result.commission.toFixed(2) },
+      { Parameter: "", Value: "" },
+      { Parameter: "--- FIXED FEE ---", Value: "" },
+      { Parameter: "Base Fixed", Value: result.baseFixedFee.toFixed(2) },
+      { Parameter: "IGST (18%)", Value: (result.fixedFee - result.baseFixedFee).toFixed(2) },
+      { Parameter: "Total Fixed", Value: result.fixedFee.toFixed(2) },
+      { Parameter: "", Value: "" },
+      { Parameter: "--- TCS & TDS ---", Value: "" },
+      { Parameter: "TCS (0.47%)", Value: result.tcs.toFixed(2) },
+      { Parameter: "TDS (0.095%)", Value: result.tds.toFixed(2) },
+      { Parameter: "Total Taxes", Value: (result.tcs + result.tds).toFixed(2) },
+      { Parameter: "", Value: "" },
+      { Parameter: "--- BANK SETTLEMENT ---", Value: "" },
+      { Parameter: "Estimated Payout", Value: result.totalActualSettlement.toFixed(2) },
+      { Parameter: "Sourcing TP", Value: Math.round(tpPrice) },
+      { Parameter: result.totalActualSettlement - tpPrice >= 0 ? "Margin" : "Shortfall", Value: Math.round(result.totalActualSettlement - tpPrice) }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    worksheet['!cols'] = [{ wch: 25 }, { wch: 15 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Calculation");
+    XLSX.writeFile(workbook, `Calculation_${brand}_${articleType}.xlsx`);
+  };
 
   return (
     <div className="w-full bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -209,10 +263,19 @@ const CompactSimulator: React.FC<CompactSimulatorProps> = ({
             />
           </div>
 
-          {/* MRP DISPLAY */}
-          <div className="bg-emerald-50/60 border border-emerald-100 p-2 rounded-md flex flex-col justify-center min-w-[90px] shadow-sm">
-            <label className="text-[10px] font-medium text-emerald-700 uppercase tracking-widest px-1">MRP</label>
-            <div className="font-semibold text-emerald-800 px-1 pt-1 text-sm">₹{Math.round(result.aisp)}</div>
+          {/* MRP DISPLAY & EXPORT */}
+          <div className="flex items-stretch gap-2">
+            <div className="bg-emerald-50/60 border border-emerald-100 p-2 rounded-md flex flex-col justify-center min-w-[90px] shadow-sm">
+              <label className="text-[10px] font-medium text-emerald-700 uppercase tracking-widest px-1">MRP</label>
+              <div className="font-semibold text-emerald-800 px-1 pt-1 text-sm">₹{Math.round(result.aisp)}</div>
+            </div>
+            <button 
+              onClick={exportToExcel}
+              className="flex items-center justify-center bg-white border border-slate-200 rounded-md px-2 hover:bg-slate-50 transition-colors shadow-sm"
+              title="Export to Excel"
+            >
+              <img src={excelIcon} alt="Excel" className="w-5 h-5 object-contain" />
+            </button>
           </div>
         </div>
 
