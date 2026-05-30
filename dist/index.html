@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Myntra Cost Calculator</title>
+    <link rel="icon" type="image/png" href="/assets/logo-Cc2nV6Y1.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'forest-mint': 'var(--theme-bg)',
+              'forest-pine': 'var(--theme-primary)',
+              'forest-leaf': 'var(--theme-secondary)',
+              'forest-sage': 'var(--theme-accent-1)',
+              'forest-accent': 'var(--theme-accent-2)'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      :root {
+        --theme-bg: #FFFFFF;
+        --theme-primary: #334155;
+        --theme-secondary: #475569;
+        --theme-accent-1: #64748b;
+        --theme-accent-2: #e2e8f0;
+      }
+
+      body { 
+        font-family: 'Inter', sans-serif; 
+        -webkit-font-smoothing: antialiased;
+        background-color: #f8fafc;
+        color: #334155;
+      }
+
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--theme-primary); border-radius: 10px; }
+      
+      input[type=number]::-webkit-inner-spin-button, 
+      input[type=number]::-webkit-outer-spin-button { 
+        -webkit-appearance: none; 
+        margin: 0; 
+      }
+
+      .theme-transition * {
+        transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s ease, color 0.4s ease, fill 0.4s ease;
+      }
+
+      .theme-glass-blur main {
+        backdrop-filter: blur(12px) saturate(180%);
+      }
+    </style>
+
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/assets/index-CkryHau_.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-KrfumMBl.css">
+</head>
+  <body class="bg-forest-mint text-forest-pine dark:bg-[#0F1A13] dark:text-forest-mint">
+    <div id="root"></div>
+</body>
+</html>

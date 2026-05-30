@@ -10,6 +10,8 @@ import CompactSimulator from './components/CompactSimulator';
 import ResultCard from './components/ResultCard';
 import BatchProcessor from './components/BatchProcessor';
 import logoImg from './logo.png';
+import sheetLogo from './sheet-logo.png';
+import ajioLogo from './ajio-logo.png';
 import Chatbot from './components/Chatbot';
 
 const DEFAULT_BUFFERS: BusinessBuffers = {
@@ -675,6 +677,25 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="relative flex items-center gap-2">
+            <a 
+              href="https://ajio-cost-sheet-new-3.onrender.com" 
+              target="_blank" 
+              rel="noreferrer" 
+              title="Open AJIO Calculator" 
+              className="flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1.5 hover:bg-slate-50 transition-colors shadow-sm font-medium text-xs text-slate-700"
+            >
+               <img src={ajioLogo} alt="AJIO Logo" className="w-4 h-4 object-contain" />
+               AJIO
+            </a>
+            <a 
+              href="https://docs.google.com/spreadsheets/d/19UETYbqUuP6XNRAtlT77M87vZAnnnSPMmjrj9uO0EwE/edit?gid=1717816390#gid=1717816390" 
+              target="_blank" 
+              rel="noreferrer" 
+              title="Open Google Sheet" 
+              className="flex items-center justify-center bg-white border border-slate-200 rounded-md p-1.5 hover:bg-slate-50 transition-colors shadow-sm"
+            >
+               <img src={sheetLogo} alt="Sheet Logo" className="w-5 h-5 object-contain" />
+            </a>
             <button 
               onClick={fetchAndLoadMasterData}
               disabled={loadingMaster}
@@ -697,7 +718,6 @@ const App: React.FC = () => {
               <option value="party">Party Master</option>
               <option value="gta">GTA Master</option>
               <option value="category">Category Master</option>
-              <option value="reverse">Reverse Logistics Master</option>
               <option value="commission">Commission Master</option>
               <option value="fixed_fee">Fixed Fee Master</option>
             </select>

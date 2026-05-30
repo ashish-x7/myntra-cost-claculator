@@ -38,31 +38,29 @@ export const parseMyntraAnnexureText = (
     }
   } else {
     // 2. Extract Fixed Fees
-    const fixedFeeStartIndex = fullText.indexOf('Fixed Fee');
-    if (fixedFeeStartIndex !== -1) {
-      const fixedFeeText = fullText.substring(fixedFeeStartIndex);
-      const fixedRegex = /(Apparel|Free Items|Accessories)\s+([\w\s-/]+?)\s+(Men|Women|Unisex|Boys|Girls)\s+(\d+)\s+(\d+|100000000|10000000)\s+([\d.]+)/gi;
-      
-      let fixedMatch;
-      while ((fixedMatch = fixedRegex.exec(fixedFeeText)) !== null) {
-        const category = fixedMatch[1].trim();
-        const articleType = fixedMatch[2].trim();
-        const gender = fixedMatch[3].trim();
-        const lowerLimit = parseFloat(fixedMatch[4]);
-        const upperLimit = parseFloat(fixedMatch[5]);
-        const fee = parseFloat(fixedMatch[6]);
+    const fixedFeeStartIndex = fullText.toLowerCase().indexOf('fixed fee');
+    const fixedFeeText = fixedFeeStartIndex !== -1 ? fullText.substring(fixedFeeStartIndex) : fullText;
+    const fixedRegex = /(Apparel|Free Items|Accessories)\s+([\w\s-/]+?)\s+(Men|Women|Unisex|Boys|Girls)\s+(\d+)\s+(\d+|100000000|10000000)\s+([\d.]+)/gi;
+    
+    let fixedMatch;
+    while ((fixedMatch = fixedRegex.exec(fixedFeeText)) !== null) {
+      const category = fixedMatch[1].trim();
+      const articleType = fixedMatch[2].trim();
+      const gender = fixedMatch[3].trim();
+      const lowerLimit = parseFloat(fixedMatch[4]);
+      const upperLimit = parseFloat(fixedMatch[5]);
+      const fee = parseFloat(fixedMatch[6]);
 
-        rules.push({
-          brand: brandName,
-          category,
-          articleType,
-          gender,
-          lowerLimit,
-          upperLimit: (upperLimit === 100000000 || upperLimit === 10000000) ? Infinity : upperLimit,
-          commissionPercent: 0,
-          fixedFee: fee
-        });
-      }
+      rules.push({
+        brand: brandName,
+        category,
+        articleType,
+        gender,
+        lowerLimit,
+        upperLimit: (upperLimit === 100000000 || upperLimit === 10000000) ? Infinity : upperLimit,
+        commissionPercent: 0,
+        fixedFee: fee
+      });
     }
   }
 
