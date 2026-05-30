@@ -5,6 +5,9 @@ import * as XLSX from 'xlsx-js-style';
 import { Level, Region, ArticleType, ReverseLogisticsMode, Gender, BusinessBuffers, Marketplace, Brand, ManualRateCard, MarginType, FeeRule } from '../types';
 import { findAISPForTarget, calculateBreakdown, calculateTargetFromTP, calculateBaseCost, calculateReturnCost } from '../services/calculatorService';
 import { ARTICLE_SPECIFICATIONS, GST_RATE, REVERSE_LOGISTICS_FEES, ARTICLE_LEVEL_MAPPING } from '../constants';
+import excelIcon from '../excel-icon.png';
+import clearIcon from '../clear-icon.png';
+import uploadIcon from '../upload-icon.png';
 
 export const FIXED_HEADERS = [
   "A-No.", "B-Seller Name", "C-Item Name", "D-Category", "E-Brand", "F-Type", 
@@ -577,8 +580,9 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
         <button
           onClick={triggerUpload}
           disabled={!selectedFile || isProcessing}
-          className={`px-6 py-2 rounded-lg font-normal text-[11px] uppercase tracking-wider text-white transition-all shadow-sm active:scale-95 ${(!selectedFile || isProcessing) ? 'bg-slate-300 opacity-50 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-800'}`}
+          className={`flex items-center gap-1.5 px-6 py-2 rounded-lg font-normal text-[11px] uppercase tracking-wider text-white transition-all shadow-sm active:scale-95 ${(!selectedFile || isProcessing) ? 'bg-slate-300 opacity-50 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-800'}`}
         >
+          <img src={uploadIcon} alt="Upload" className={`w-3.5 h-3.5 object-contain ${(!selectedFile || isProcessing) ? '' : 'invert brightness-0'}`} />
           {isProcessing ? "Processing..." : "Upload"}
         </button>
 
@@ -595,15 +599,17 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({
           <button 
             onClick={triggerExportModal}
             disabled={!hasCurrentData}
-            className={`px-6 py-2 text-white rounded-lg font-normal text-[11px] uppercase tracking-wider transition-all shadow-sm ${!hasCurrentData ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-800'}`}
+            className={`flex items-center gap-1.5 px-6 py-2 text-white rounded-lg font-normal text-[11px] uppercase tracking-wider transition-all shadow-sm ${!hasCurrentData ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-800'}`}
           >
+            <img src={excelIcon} alt="Export" className={`w-3.5 h-3.5 object-contain ${!hasCurrentData ? 'grayscale opacity-50' : 'invert brightness-0'}`} />
             Export
           </button>
           <button 
             onClick={clearAllData}
             disabled={!hasCurrentData}
-            className={`px-6 py-2 text-white rounded-lg font-normal text-[11px] uppercase tracking-wider transition-all shadow-sm ${!hasCurrentData ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-500 hover:bg-rose-600'}`}
+            className={`flex items-center gap-1.5 px-6 py-2 text-white rounded-lg font-normal text-[11px] uppercase tracking-wider transition-all shadow-sm ${!hasCurrentData ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-500 hover:bg-rose-600'}`}
           >
+            <img src={clearIcon} alt="Clear Data" className={`w-3.5 h-3.5 object-contain ${!hasCurrentData ? 'opacity-50' : 'invert brightness-0'}`} />
             Clear Data
           </button>
         </div>

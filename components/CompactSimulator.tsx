@@ -4,6 +4,7 @@ import { Brand, ArticleType, BusinessBuffers, Level, PricingResult, MarginType, 
 import SearchableSelect from './SearchableSelect';
 import { calculateReturnCost } from '../services/calculatorService';
 import excelIcon from '../excel-icon.png';
+import clearIcon from '../clear-icon.png';
 
 interface CompactSimulatorProps {
   brand: string;
@@ -153,6 +154,16 @@ const CompactSimulator: React.FC<CompactSimulatorProps> = ({
     XLSX.writeFile(workbook, `Calculation_${brand}_${articleType}.xlsx`);
   };
 
+  const clearData = () => {
+    setTpPrice(0);
+    setTargetSettlement(0);
+    setBuffers({
+      ...buffers,
+      marginAdjustment: 0,
+      returnPercent: 0,
+    });
+  };
+
   return (
     <div className="w-full bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
       {/* INPUT PANEL */}
@@ -263,19 +274,30 @@ const CompactSimulator: React.FC<CompactSimulatorProps> = ({
             />
           </div>
 
-          {/* MRP DISPLAY & EXPORT */}
+          {/* MRP DISPLAY & ACTIONS */}
           <div className="flex items-stretch gap-2">
             <div className="bg-emerald-50/60 border border-emerald-100 p-2 rounded-md flex flex-col justify-center min-w-[90px] shadow-sm">
               <label className="text-[10px] font-medium text-emerald-700 uppercase tracking-widest px-1">MRP</label>
               <div className="font-semibold text-emerald-800 px-1 pt-1 text-sm">₹{Math.round(result.aisp)}</div>
             </div>
-            <button 
-              onClick={exportToExcel}
-              className="flex items-center justify-center bg-white border border-slate-200 rounded-md px-2 hover:bg-slate-50 transition-colors shadow-sm"
-              title="Export to Excel"
-            >
-              <img src={excelIcon} alt="Excel" className="w-5 h-5 object-contain" />
-            </button>
+            <div className="flex flex-col gap-1.5 justify-center">
+              <button 
+                onClick={exportToExcel}
+                className="flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 transition-colors shadow-sm"
+                title="Export to Excel"
+              >
+                <img src={excelIcon} alt="Excel" className="w-3.5 h-3.5 object-contain" />
+                <span className="text-[9px] font-medium text-slate-600 uppercase tracking-wider">Export</span>
+              </button>
+              <button 
+                onClick={clearData}
+                className="flex items-center justify-center gap-1.5 bg-white border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50 transition-colors shadow-sm"
+                title="Clear Data"
+              >
+                <img src={clearIcon} alt="Clear" className="w-3.5 h-3.5 object-contain opacity-70" />
+                <span className="text-[9px] font-medium text-slate-600 uppercase tracking-wider">Clear</span>
+              </button>
+            </div>
           </div>
         </div>
 

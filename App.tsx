@@ -12,6 +12,8 @@ import BatchProcessor from './components/BatchProcessor';
 import logoImg from './logo.png';
 import sheetLogo from './sheet-logo.png';
 import ajioLogo from './ajio-logo.png';
+import bulkIcon from './bulk-icon.png';
+import singleIcon from './single-icon.png';
 import Chatbot from './components/Chatbot';
 
 const DEFAULT_BUFFERS: BusinessBuffers = {
@@ -732,14 +734,22 @@ const App: React.FC = () => {
           <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 max-w-sm">
             <button
               onClick={() => setActiveTab('single')}
-              className={`flex-1 py-2 text-[10px] font-normal uppercase tracking-wider rounded-lg transition-all ${activeTab === 'single' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-normal uppercase tracking-wider rounded-lg transition-all ${activeTab === 'single' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}
             >
+              <div 
+                className={`w-3.5 h-3.5 ${activeTab === 'single' ? 'bg-white' : 'bg-slate-500'}`} 
+                style={{ WebkitMaskImage: `url(${singleIcon})`, WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: `url(${singleIcon})`, maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }}
+              />
               Single Calculation
             </button>
             <button
               onClick={() => setActiveTab('batch')}
-              className={`flex-1 py-2 text-[10px] font-normal uppercase tracking-wider rounded-lg transition-all ${activeTab === 'batch' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-normal uppercase tracking-wider rounded-lg transition-all ${activeTab === 'batch' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200/50'}`}
             >
+              <div 
+                className={`w-3.5 h-3.5 ${activeTab === 'batch' ? 'bg-white' : 'bg-slate-500'}`} 
+                style={{ WebkitMaskImage: `url(${bulkIcon})`, WebkitMaskSize: 'contain', WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', maskImage: `url(${bulkIcon})`, maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }}
+              />
               Bulk Upload
             </button>
           </div>
